@@ -71,30 +71,59 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Registration"),
+          backgroundColor:
+              Colors.grey[800], // Light grey background for the dialog
+          title: Text(
+            "Registration",
+            style: TextStyle(
+              color: Colors.white, // Dark grey text for contrast
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
                 TextField(
                   controller: _signupEmailController,
-                  decoration: InputDecoration(hintText: "Email"),
                   keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: "Email",
+                    labelText: "Email",
+                    border: OutlineInputBorder(),
+                    fillColor: Colors.grey[700],
+                    filled: true, // Background color for TextField
+                  ),
                 ),
+                SizedBox(height: 10), // Adds space between fields
                 TextField(
                   controller: _signupPasswordController,
-                  decoration: InputDecoration(hintText: "Password"),
                   obscureText: true,
+                  decoration: InputDecoration(
+                    hintText: "Password",
+                    labelText: "Password",
+                    border: OutlineInputBorder(),
+                    fillColor: Colors.grey[700],
+                    filled: true, // Background color for TextField
+                  ),
                 ),
               ],
             ),
           ),
           actions: <Widget>[
             TextButton(
-              child: Text("Cancel"),
+              child: Text(
+                "Cancel",
+                style:
+                    TextStyle(color: Colors.white), // Dark grey text for button
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: Text("Sign Up"),
+              child: Text(
+                "Sign Up",
+                style:
+                    TextStyle(color: Colors.white), // Dark grey text for button
+              ),
               onPressed: () async {
                 Navigator.of(context).pop(); // Close the dialog first
                 await _signUp(_signupEmailController.text,
@@ -111,7 +140,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade600,
         centerTitle: true,
         title: Text("ARTGRAM"),
       ),
@@ -121,21 +149,32 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: "Enter your email",
-                  labelText: "Email",
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: "Enter your email",
+                    labelText: "Email",
+                    border:
+                        OutlineInputBorder(), // Use OutlineInputBorder for consistent styling
+                  ),
                 ),
               ),
               SizedBox(height: 8.0),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: "Enter your password",
-                  labelText: "Password",
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: _passwordController,
+                  obscureText:
+                      true, // Ensures the password is hidden during entry
+                  decoration: const InputDecoration(
+                    hintText: "Enter your password",
+                    labelText: "Password",
+                    border:
+                        OutlineInputBorder(), // Provides a consistent outlined appearance
+                  ),
                 ),
               ),
               SizedBox(height: 24.0),
