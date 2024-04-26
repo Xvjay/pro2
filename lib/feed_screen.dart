@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:final_project/navigation_bar.dart' as custom_nav;
-import 'image_handler.dart'; // Make sure this import is correct
+import 'image_handler.dart'; // Assuming the correct path
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FeedScreen extends StatefulWidget {
   @override
@@ -11,21 +12,15 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> {
   int _selectedIndex = 2;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final ImageHandler _imageHandler = ImageHandler(); // Instance of ImageHandler
+  final ImageHandler _imageHandler = ImageHandler();
   final TextEditingController _imageNameController = TextEditingController();
 
   Stream<List<DocumentSnapshot>> getImagesStream() {
-    return _firestore
+    return _imageHandler.getFirestore()
         .collection('images')
-        .orderBy('rating',
-            descending: true) // Sort by rating in descending order
+        .orderBy('averageRating', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs);
-  }
-
-  void updateImageRating(String docId, double rating) {
-    _firestore.collection('images').doc(docId).update({'rating': rating});
   }
 
   void onItemTapped(int index) {
@@ -74,7 +69,8 @@ class _FeedScreenState extends State<FeedScreen> {
   void _uploadImage() async {
     final XFile? pickedFile = await _imageHandler.pickImage();
     if (pickedFile != null) {
-      String downloadUrl = await _imageHandler.uploadImage(pickedFile);
+      String imageName = _imageNameController.text;
+      String downloadUrl = await _imageHandler.uploadImage(pickedFile, imageName);
       if (downloadUrl.isNotEmpty) {
         // Optionally show a message or update UI upon successful upload
       }
@@ -86,9 +82,6 @@ class _FeedScreenState extends State<FeedScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Image Feed'),
-        actions: [
-          // Add sorting and filtering functionality if needed
-        ],
       ),
       body: StreamBuilder<List<DocumentSnapshot>>(
         stream: getImagesStream(),
@@ -104,34 +97,8 @@ class _FeedScreenState extends State<FeedScreen> {
             itemBuilder: (context, index) {
               DocumentSnapshot doc = snapshot.data![index];
               Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-              double rating = data['rating'] ?? 0.0;
-              return Card(
-                margin: EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    Image.network(
-                      data['imageUrl'],
-                      fit: BoxFit.cover,
-                      // Placeholder and error widgets can be added for a better UX
-                    ),
-                    Slider(
-                      min: 1,
-                      max: 10,
-                      divisions: 9,
-                      value: rating,
-                      label: rating.round().toString(),
-                      onChanged: (newRating) {
-                        setState(() {
-                          // Update the local rating for immediate UI response
-                          data['rating'] = newRating;
-                        });
-                        // Update the rating in Firestore
-                        updateImageRating(doc.id, newRating);
-                      },
-                    ),
-                  ],
-                ),
-              );
+
+              return FeedCard(imageData: data, imageHandler: _imageHandler);
             },
           );
         },
@@ -146,6 +113,60 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Icon(Icons.add_a_photo, color: Colors.black),
         backgroundColor: Colors.grey[400],
         elevation: 6,
+      ),
+    );
+  }
+}
+
+class FeedCard extends StatefulWidget {
+  final Map<String, dynamic> imageData;
+  final ImageHandler imageHandler;
+
+  FeedCard({Key? key, required this.imageData, required this.imageHandler}) : super(key: key);
+
+  @override
+  _FeedCardState createState() => _FeedCardState();
+}
+
+class _FeedCardState extends State<FeedCard> {
+  late double _currentRating = 1;  // Default initial rating
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeRating();
+  }
+
+  void _initializeRating() async {
+    double rating = await widget.imageHandler.calculateAverageRating(widget.imageData['imageName']);
+    setState(() {
+      _currentRating = rating;
+    });
+  }
+
+  void _updateRating(double newRating) {
+    setState(() {
+      _currentRating = newRating;
+    });
+    widget.imageHandler.addOrUpdateRating(widget.imageData['imageName'], newRating);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          widget.imageHandler.displayImage(widget.imageData['imageUrl']),
+          Slider(
+            min: 0,
+            max: 10,
+            divisions: 10,
+            value: _currentRating,
+            label: _currentRating.round().toString(),
+            onChanged: _updateRating,
+          ),
+        ],
       ),
     );
   }

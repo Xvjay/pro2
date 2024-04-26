@@ -5,8 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'navigation_bar.dart' as custom_nav;
-import 'message_screen.dart';
-import 'settings_screen.dart';
 import 'image_handler.dart'; // Make sure this import is correct
 
 class ProfileScreen extends StatefulWidget {
@@ -17,7 +15,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final ImageHandler _imageHandler = ImageHandler(); // ImageHandler instance
+  final ImageHandler _imageHandler = ImageHandler(); // Instance of ImageHandler
 
   TextEditingController _usernameController = TextEditingController();
   TextEditingController _firstNameController = TextEditingController();
@@ -25,7 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _userRole;
   String? _email;
   DateTime? _registrationDate;
-  String? _imageUrl; // URL for the image
+  String? _imageUrl; // URL for the profile image
 
   int _currentIndex = 0; // Index 0 for the Profile Screen
 
@@ -38,8 +36,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _loadUserProfile() async {
     User? currentUser = _auth.currentUser;
     if (currentUser != null) {
-      var userDoc = _firestore.collection('users').doc(currentUser.uid);
-      userDoc.get().then((doc) {
+      var userProfileDoc = _firestore.collection('userProfiles').doc(currentUser.uid);
+      userProfileDoc.get().then((doc) {
         if (doc.exists) {
           var data = doc.data() as Map<String, dynamic>;
           _usernameController.text = data['username'] ?? '';
@@ -47,9 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _lastNameController.text = data['lastName'] ?? '';
           _userRole = data['userRole'];
           _email = currentUser.email; // Email comes from FirebaseAuth
-          _imageUrl = data['profilePictureUrl']; // Load the image URL
-          _registrationDate =
-              (data['registrationDatetime'] as Timestamp).toDate();
+          _imageUrl = data['profilePictureUrl']; // Load the most recent image URL
+          _registrationDate = (data['updatedAt'] as Timestamp).toDate();
           setState(() {}); // Ensure the UI is updated
         }
       }).catchError((error) {
@@ -61,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _updateUserProfile() async {
     User? currentUser = _auth.currentUser;
     if (currentUser != null) {
-      await _firestore.collection('users').doc(currentUser.uid).update({
+      await _firestore.collection('userProfiles').doc(currentUser.uid).update({
         'username': _usernameController.text,
         'firstName': _firstNameController.text,
         'lastName': _lastNameController.text,
@@ -76,16 +73,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _uploadAndDisplayImage() async {
     final pickedFile = await _imageHandler.pickImage();
     if (pickedFile != null) {
-      String downloadUrl = await _imageHandler.uploadImage(pickedFile);
-      // Update the user profile in Firestore
+      String downloadUrl = await _imageHandler.uploadImage(pickedFile, 'profile');
       User? currentUser = _auth.currentUser;
       if (currentUser != null) {
-        await _firestore.collection('users').doc(currentUser.uid).update({
+        // Update the Firestore document for the most recent profile picture
+        DocumentReference userProfileRef = _firestore.collection('userProfiles').doc(currentUser.uid);
+
+        userProfileRef.set({
           'profilePictureUrl': downloadUrl,
-        }).then((_) {
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).then((_) {
           setState(() {
-            _imageUrl =
-                downloadUrl; // This will only be set after Firestore confirms the update.
+            _imageUrl = downloadUrl; // Update the UI with the new image URL
           });
         }).catchError((error) {
           print("Failed to update user data: $error");
@@ -106,8 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             if (_imageUrl != null)
-              _imageHandler.displayImage(
-                  _imageUrl!), // Display the image using ImageHandler
+              _imageHandler.displayImage(_imageUrl!), // Display the image using ImageHandler
             Column(
               children: <Widget>[
                 ElevatedButton(
@@ -116,14 +114,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.black,
                     backgroundColor: Colors.grey[400],
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 50, vertical: 8),
-                    textStyle: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
                 Padding(
@@ -175,17 +169,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: const Text('Update Profile'),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.black,
-                    backgroundColor:
-                        Colors.grey[400], // Text color for readability
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 50, vertical: 8),
-                    textStyle: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                    elevation: 2, // Subtle shadow for a slight 3D effect
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                          8), // Rounded corners for a sleek look
-                    ),
+                    backgroundColor: Colors.grey[400],
+                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -198,7 +186,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onItemTapped(int index) {
     if (index != 0) {
-      // Don't navigate away if we're on the current screen
       switch (index) {
         case 1:
           Navigator.pushReplacementNamed(context, '/messages');
